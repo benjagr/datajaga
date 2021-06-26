@@ -1,5 +1,8 @@
 #pragma once
 
+#include <boost/archive/binary_oarchive.hpp>
+#include <boost/archive/binary_iarchive.hpp>
+
 typedef int AC_STATUS;
 
 #define AC_OFF 0
@@ -21,6 +24,45 @@ typedef int AC_SESSION_TYPE;
 
 class DtLump {
 	private:
+		friend class boost::serialization::access;
+		template<class Archive>
+		void serialize(Archive & ar, const unsigned int version)
+		{
+			ar & packetId;
+
+			ar & status;
+			ar & session;
+
+			ar & gas;
+			ar & brake;
+			ar & fuel;
+			ar & gear;
+			ar & rpms;
+			ar & steerAngle;
+			ar & speedKmh;
+			ar & accG;
+			ar & wheelSlip;
+			ar & wheelLoad;
+			ar & wheelsPressure;
+			ar & tyreCoreTemperature;
+			ar & tyreWear;
+			ar & tyreDirtyLevel;
+			ar & drs;
+			ar & carDamage;
+			ar & numberOfTyresOut;
+
+			ar & completedLaps;
+			ar & position;
+			ar & iCurrentTime;
+			ar & iLastTime;
+			ar & iBestTime;
+			ar & currentSectorIndex;
+			ar & isInPit;
+
+			ar & normalizedCarPosition;
+			ar & carCoordinates;
+		}
+
 		int packetId = 0;
 
 		AC_STATUS status = AC_OFF;
@@ -58,6 +100,17 @@ class DtLump {
 
 class StLump {
 	private:
+		friend class boost::serialization::access;
+		template<class Archive>
+		void serialize(Archive& ar, const unsigned int version)
+		{
+			ar& carModel;
+			ar& track;
+			ar& playerName;
+			ar& playerSurname;
+			ar& playerNick;
+		}
+
 		wchar_t carModel[33];
 		wchar_t track[33];
 		wchar_t playerName[33];
