@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include <stdafx.h>
 #include <tchar.h>
 #include <iostream>
 #include <SharedFileOut.h>
@@ -29,15 +29,18 @@ SMElement m_graphics;
 SMElement m_physics;
 SMElement m_static;
 
-void f()
+void ddintupdate()
 {
+	SPageFilePhysics* pf = (SPageFilePhysics*)m_physics.mapFileBuffer;
+	SPageFileGraphic* gf = (SPageFileGraphic*)m_graphics.mapFileBuffer;
+	DtLump datalump = DtLump(pf->packetId, gf->status, gf->session, pf->gas, pf->brake, pf->fuel, pf->gear, pf->rpms, pf->steerAngle, pf->speedKmh, pf->accG, pf->wheelSlip, pf->wheelLoad, pf->wheelsPressure, pf->tyreCoreTemperature, pf->tyreWear, pf->tyreDirtyLevel, pf->drs, pf->carDamage, pf->numberOfTyresOut, gf->completedLaps, gf->position, gf->iCurrentTime, gf->iLastTime, gf->iBestTime, gf->currentSectorIndex, gf->isInPit, gf->normalizedCarPosition, gf->carCoordinates);
 	std::cout << "Called at " << bpt::microsec_clock::local_time().time_of_day() << '\n';
 }
 
 void caller(const boost::system::error_code&, asio::deadline_timer& t, int& count)
 {
-	f();
-	t.expires_at(t.expires_at() + bpt::seconds(1));
+	ddintupdate();
+	t.expires_at(t.expires_at() + bpt::millisec(50));
 	if (++count < 5)
 		t.async_wait(boost::bind(caller, asio::placeholders::error, boost::ref(t), boost::ref(count)));
 }

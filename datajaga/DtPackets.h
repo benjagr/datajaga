@@ -30,9 +30,66 @@ class DtLump {
 	private:
 		friend class boost::serialization::access;
 		template<class Archive>
-		void serialize(Archive& ar, const unsigned int version);
+		void serialize(Archive& ar, const unsigned int version)
+		{
+			ar& packetId;
 
-		int packetId = 0;
+			ar& status;
+			ar& session;
+
+			ar& gas;
+			ar& brake;
+			ar& fuel;
+			ar& gear;
+			ar& rpms;
+			ar& steerAngle;
+			ar& speedKmh;
+			ar& accGx;
+			ar& accGy;
+			ar& accGz;
+			ar& wheelSlipLF;
+			ar& wheelSlipRF;
+			ar& wheelSlipLR;
+			ar& wheelSlipRR;
+			ar& wheelLoadLF;
+			ar& wheelLoadRF;
+			ar& wheelLoadLR;
+			ar& wheelLoadRR;
+			ar& wheelsPressureLF;
+			ar& wheelsPressureRF;
+			ar& wheelsPressureLR;
+			ar& wheelsPressureRR;
+			ar& tyreCoreTemperatureLF;
+			ar& tyreCoreTemperatureRF;
+			ar& tyreCoreTemperatureLR;
+			ar& tyreCoreTemperatureRR;
+			ar& tyreWearLF;
+			ar& tyreWearRF;
+			ar& tyreWearLR;
+			ar& tyreWearRR;
+			ar& tyreDirtyLevelLF;
+			ar& tyreDirtyLevelRF;
+			ar& tyreDirtyLevelLR;
+			ar& tyreDirtyLevelRR;
+			ar& drs;
+			ar& carDamage;
+			ar& numberOfTyresOut;
+
+			ar& completedLaps;
+			ar& position;
+			ar& iCurrentTime;
+			ar& iLastTime;
+			ar& iBestTime;
+			ar& currentSectorIndex;
+			ar& isInPit;
+
+			ar& normalizedCarPosition;
+			ar& carCoordinatesx;
+			ar& carCoordinatesy;
+			ar& carCoordinatesz;
+		}
+
+		int packetId;
 
 		AC_STATUS status = AC_OFF;
 		AC_SESSION_TYPE session = AC_PRACTICE;
@@ -89,6 +146,8 @@ class DtLump {
 		float carCoordinatesz;
 
 	public:
+
+		DtLump(int packetIdp);
 
 		DtLump(
 			int packetIdp,
