@@ -159,6 +159,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="datajaga.cpp" />
+    <ClCompile Include="DtPackets.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="DtPackets.h" />

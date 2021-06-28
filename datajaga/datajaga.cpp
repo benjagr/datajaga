@@ -17,6 +17,8 @@ namespace asio = boost::asio;
 
 using namespace std;
 
+
+
 struct SMElement
 {
 	HANDLE hMapFile;
