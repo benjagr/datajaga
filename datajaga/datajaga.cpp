@@ -10,6 +10,9 @@
 #include <boost/bind/bind.hpp>
 #include <boost/archive/binary_oarchive.hpp>
 #include <boost/archive/binary_iarchive.hpp>
+#include<winsock2.h>
+
+#pragma comment(lib,"ws2_32.lib") //Winsock Library
 
 namespace bpt = boost::posix_time;
 namespace asio = boost::asio;
@@ -34,7 +37,7 @@ void ddintupdate()
 	SPageFilePhysics* pf = (SPageFilePhysics*)m_physics.mapFileBuffer;
 	SPageFileGraphic* gf = (SPageFileGraphic*)m_graphics.mapFileBuffer;
 	DtLump datalump = DtLump(pf->packetId, gf->status, gf->session, pf->gas, pf->brake, pf->fuel, pf->gear, pf->rpms, pf->steerAngle, pf->speedKmh, pf->accG, pf->wheelSlip, pf->wheelLoad, pf->wheelsPressure, pf->tyreCoreTemperature, pf->tyreWear, pf->tyreDirtyLevel, pf->drs, pf->carDamage, pf->numberOfTyresOut, gf->completedLaps, gf->position, gf->iCurrentTime, gf->iLastTime, gf->iBestTime, gf->currentSectorIndex, gf->isInPit, gf->normalizedCarPosition, gf->carCoordinates);
-	std::cout << "Called at " << bpt::microsec_clock::local_time().time_of_day() << '\n';
+	std::cout << "Called at " << bpt::microsec_clock::local_time().time_of_day() << '\n' << datalump.makestring();
 }
 
 void caller(const boost::system::error_code&, asio::deadline_timer& t, int& count)
@@ -108,6 +111,54 @@ int _tmain(int argc, _TCHAR* argv[])
 	int count = 0;
 	t.async_wait(boost::bind(caller, asio::placeholders::error, boost::ref(t), boost::ref(count)));
 	io.run();
+
+	WSADATA wsa;
+	SOCKET s;
+	struct sockaddr_in server;
+
+	printf("\nInitialising Winsock...");
+	if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0)
+	{
+		printf("Failed. Error Code : %d", WSAGetLastError());
+		return 1;
+	}
+
+	printf("Initialised.\n");
+
+	//Create a socket
+	if ((s = socket(AF_INET, SOCK_STREAM, 0)) == INVALID_SOCKET)
+	{
+		printf("Could not create socket : %d", WSAGetLastError());
+	}
+
+	printf("Socket created.\n");
+
+
+	InetPton(AF_INET, _T("74.125.235.20"), &server.sin_addr.s_addr);
+	server.sin_family = AF_INET;
+	server.sin_port = htons(80);
+
+	//Connect to remote server
+	if (connect(s, (struct sockaddr*)&server, sizeof(server)) < 0)
+	{
+		puts("connect error");
+		return 1;
+	}
+
+	puts("Connected");
+
+	SPageFilePhysics* pf = (SPageFilePhysics*)m_physics.mapFileBuffer;
+	SPageFileGraphic* gf = (SPageFileGraphic*)m_graphics.mapFileBuffer;
+	DtLump datalump = DtLump(pf->packetId, gf->status, gf->session, pf->gas, pf->brake, pf->fuel, pf->gear, pf->rpms, pf->steerAngle, pf->speedKmh, pf->accG, pf->wheelSlip, pf->wheelLoad, pf->wheelsPressure, pf->tyreCoreTemperature, pf->tyreWear, pf->tyreDirtyLevel, pf->drs, pf->carDamage, pf->numberOfTyresOut, gf->completedLaps, gf->position, gf->iCurrentTime, gf->iLastTime, gf->iBestTime, gf->currentSectorIndex, gf->isInPit, gf->normalizedCarPosition, gf->carCoordinates);
+
+
+	//Send some data
+	if (send(s, datalump.todatapacket(), strlen(datalump.todatapacket()), 0) < 0)
+	{
+		puts("Send failed");
+		return 1;
+	}
+	puts("Data Send\n");
 
 	/*while (false)
 	{

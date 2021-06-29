@@ -94,7 +94,7 @@ class DtLump {
 		AC_STATUS status = AC_OFF;
 		AC_SESSION_TYPE session = AC_PRACTICE;
 
-		float gas;
+		float gas = 0;
 		float brake = 0;
 		float fuel = 0;
 		int gear = 0;
@@ -183,6 +183,10 @@ class DtLump {
 
 			float normalizedCarPositionp,
 			float carCoordinatesp[3]);
+
+		string makestring();
+
+		const char* todatapacket();
 };
 
 class StLump {
