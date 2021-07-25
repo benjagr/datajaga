@@ -1,9 +1,9 @@
-#include <stdafx.h>
+﻿#include <stdafx.h>
 #include <tchar.h>
 #include <iostream>
 #include <SharedFileOut.h>
 #include <DtPackets.h>
-#include <iostream>
+#include <fstream>
 #include <iomanip>
 #include <boost/asio.hpp>
 #include <boost/date_time.hpp>
@@ -11,6 +11,7 @@
 #include <boost/archive/binary_oarchive.hpp>
 #include <boost/archive/binary_iarchive.hpp>
 #include<winsock2.h>
+#include<cstring>
 
 #pragma comment(lib,"ws2_32.lib") //Winsock Library
 
@@ -28,25 +29,64 @@ struct SMElement
 	unsigned char* mapFileBuffer;
 };
 
+bool glb_debug = FALSE;
+
+ofstream outfile;
+
 SMElement m_graphics;
 SMElement m_physics;
 SMElement m_static;
 
-void ddintupdate()
+SPageFilePhysics* pf;
+SPageFileGraphic* gf;
+SPageFileStatic* sf;
+
+
+
+/*
+void writelumptooutfile()
 {
-	SPageFilePhysics* pf = (SPageFilePhysics*)m_physics.mapFileBuffer;
-	SPageFileGraphic* gf = (SPageFileGraphic*)m_graphics.mapFileBuffer;
-	DtLump datalump = DtLump(pf->packetId, gf->status, gf->session, pf->gas, pf->brake, pf->fuel, pf->gear, pf->rpms, pf->steerAngle, pf->speedKmh, pf->accG, pf->wheelSlip, pf->wheelLoad, pf->wheelsPressure, pf->tyreCoreTemperature, pf->tyreWear, pf->tyreDirtyLevel, pf->drs, pf->carDamage, pf->numberOfTyresOut, gf->completedLaps, gf->position, gf->iCurrentTime, gf->iLastTime, gf->iBestTime, gf->currentSectorIndex, gf->isInPit, gf->normalizedCarPosition, gf->carCoordinates);
-	std::cout << "Called at " << bpt::microsec_clock::local_time().time_of_day() << '\n' << datalump.makestring();
+	outfile << DtLump(pf->packetId, gf->status, gf->session, pf->gas, pf->brake, pf->fuel, pf->gear, pf->rpms, pf->steerAngle, pf->speedKmh, pf->accG, pf->wheelSlip, pf->wheelLoad, pf->wheelsPressure, pf->tyreCoreTemperature, pf->tyreWear, pf->tyreDirtyLevel, pf->drs, pf->carDamage, pf->numberOfTyresOut, gf->completedLaps, gf->position, gf->iCurrentTime, gf->iLastTime, gf->iBestTime, gf->currentSectorIndex, gf->isInPit, gf->normalizedCarPosition, gf->carCoordinates).todatapacket() << endl;
+}
+*/
+
+void writelumptooutfile()
+{
+	DtLump wrlump = DtLump(pf->packetId, gf->status, gf->session, pf->gas, pf->brake, pf->fuel, pf->gear, pf->rpms, pf->steerAngle, pf->speedKmh, pf->accG, pf->wheelSlip, pf->wheelLoad, pf->wheelsPressure, pf->tyreCoreTemperature, pf->tyreWear, pf->tyreDirtyLevel, pf->drs, pf->carDamage, pf->numberOfTyresOut, gf->completedLaps, gf->position, gf->iCurrentTime, gf->iLastTime, gf->iBestTime, gf->currentSectorIndex, gf->isInPit, gf->normalizedCarPosition, gf->carCoordinates);
+	if (outfile.bad()) {
+		cout << "Error in File Writing" << endl;
+	}
+	if(glb_debug){
+		cout << wrlump.todatapacket() << endl;
+	}
+	outfile << wrlump.todatapacket() << endl;
 }
 
-void caller(const boost::system::error_code&, asio::deadline_timer& t, int& count)
+void writecurrentlaptodisk(const boost::system::error_code&, asio::deadline_timer& t, int& previous)
 {
-	ddintupdate();
+	writelumptooutfile();
 	t.expires_at(t.expires_at() + bpt::millisec(50));
-	if (++count < 5)
-		t.async_wait(boost::bind(caller, asio::placeholders::error, boost::ref(t), boost::ref(count)));
+	if (previous == gf->completedLaps)
+		t.async_wait(boost::bind(writecurrentlaptodisk, asio::placeholders::error, boost::ref(t), boost::ref(previous)));
 }
+
+void writecurrentsessiontodisk(const boost::system::error_code&, asio::deadline_timer& t, int& previous)
+{
+	writelumptooutfile();
+	t.expires_at(t.expires_at() + bpt::millisec(50));
+	if (previous == gf->session) {
+		if (!(GetAsyncKeyState(0x32) && GetAsyncKeyState(VK_LSHIFT))) {
+			t.async_wait(boost::bind(writecurrentsessiontodisk, asio::placeholders::error, boost::ref(t), boost::ref(previous)));
+		}
+		else {
+			cout << "Recording aborted by User" << endl;
+		}
+	}
+	else {
+		cout << "Session Over" << endl;
+	}
+}
+
 
 void initPhysics()
 {
@@ -108,14 +148,80 @@ int _tmain(int argc, _TCHAR* argv[])
 
 	asio::io_service io;
 	asio::deadline_timer t(io, bpt::seconds(1));
-	int count = 0;
-	t.async_wait(boost::bind(caller, asio::placeholders::error, boost::ref(t), boost::ref(count)));
-	io.run();
 
+	cout << "Press 1 to write Data of your next Lap to Disk\nPress 2 to write Data of your current Session to Disk\nPress 3 to send Data of your next Lap to DataJaeger\n";
+
+	pf = (SPageFilePhysics*)m_physics.mapFileBuffer;
+	gf = (SPageFileGraphic*)m_graphics.mapFileBuffer;
+	sf = (SPageFileStatic*)m_static.mapFileBuffer;
+
+	while (true)
+	{
+		if (GetAsyncKeyState(0x31)) // user pressed 1 Write next Lap to Disk
+		{
+			cout << "Preparing to write Data of the next Lap to Disk" << endl;
+			int previous = gf->completedLaps;
+			string ptext = "";
+			cout << "Waiting for end of Lap Number: ";
+			cout << (previous + 1) << endl;
+			while (previous == gf->completedLaps && glb_debug) {
+				ptext = to_string(gf->completedLaps);
+				cout << ptext;
+				for (int i = 0; i < ptext.length(); i++) {
+					cout << '\b';
+				}
+			}
+			previous = gf->completedLaps;
+			cout << "Writing current Lap: ";
+			cout << (previous + 1) << endl;
+			outfile.open("out.bin", ios::out);
+			cout << "Initialized Multithreaded extraction Process" << endl;
+			t.async_wait(boost::bind(writecurrentlaptodisk, asio::placeholders::error, boost::ref(t), boost::ref(previous)));
+			cout << "Running Multithreaded extraction Process" << endl;
+			outfile << StLump(sf->carModel, sf->track, sf->playerName, sf->playerNick, sf->playerSurname).todatapacket() << endl;
+			io.run();
+			outfile.close();
+			cout << "Finished current Lap: ";
+			cout << previous << endl;
+		}
+		else if (GetAsyncKeyState(0x32) && !GetAsyncKeyState(VK_LSHIFT)) // user pressed 2 Write Session to Disk
+		{
+			cout << "Preparing to write Data of the next Lap to Disk" << endl;
+			int previous = gf->session;
+			cout << "Writing current Session: ";
+			cout << previous << endl;
+			outfile.open("out.bin", ios::out);
+			cout << "Initialized Multithreaded extraction Process" << endl;
+			t.async_wait(boost::bind(writecurrentsessiontodisk, asio::placeholders::error, boost::ref(t), boost::ref(previous)));
+			cout << "Running Multithreaded extraction Process" << endl;
+			cout << "Recording until end of Session; Press Shift + 2 to abort" << endl;
+			outfile << StLump(sf->carModel, sf->track, sf->playerName, sf->playerNick, sf->playerSurname).todatapacket() << endl;
+			io.run();
+			outfile.close();
+			cout << "Finished writing to file" << endl;
+		}
+		else if (GetAsyncKeyState(0x33)) // user pressed 3 Send Data to Jaeger
+		{
+			cout << "Currently not implemented" << endl;
+		}
+		else if (GetAsyncKeyState(0x30)) // user pressed 0 Set User Debug
+		{
+			if (glb_debug && GetAsyncKeyState(VK_LSHIFT) != 0) {
+				cout << "User Debug Deactivated" << endl;
+				glb_debug = false;
+			}
+			else if (!glb_debug) {
+				cout << "User Debug Activated" << endl;
+				glb_debug = true;
+			}
+		}
+	}
+
+	/*
 	WSADATA wsa;
 	SOCKET s;
 	struct sockaddr_in server;
-
+	
 	printf("\nInitialising Winsock...");
 	if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0)
 	{
@@ -134,7 +240,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	printf("Socket created.\n");
 
 
-	InetPton(AF_INET, _T("74.125.235.20"), &server.sin_addr.s_addr);
+	InetPton(AF_INET, _T("127.0.0.1"), &server.sin_addr.s_addr);
 	server.sin_family = AF_INET;
 	server.sin_port = htons(80);
 

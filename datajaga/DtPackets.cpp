@@ -84,7 +84,7 @@ string DtLump::makestring() {
 			"carCoordinatesz\t" + std::to_string(carCoordinatesz) + "\n";
 }
 
-const char* DtLump::todatapacket() {
+string DtLump::todatapacket() {
 	string sDatapacket =	std::to_string(packetId) + ";" +
 
 							std::to_string(status) + ";" +
@@ -239,6 +239,17 @@ DtLump::DtLump(
 	carCoordinatesx = carCoordinatesp[0];
 	carCoordinatesy = carCoordinatesp[1];
 	carCoordinatesz = carCoordinatesp[2];
+}
+
+
+string StLump::todatapacket() {
+	string sDatapacket = carModel + ";" +
+		track + ";" +
+		playerName + ";" +
+		playerSurname + ";" +
+		playerNick + ";";
+	const char* cDatapacket = sDatapacket.c_str();
+	return	cDatapacket;
 }
 
 string StLump::actostring(wchar_t acstr[33]) {

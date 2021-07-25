@@ -186,7 +186,7 @@ class DtLump {
 
 		string makestring();
 
-		const char* todatapacket();
+		string todatapacket();
 };
 
 class StLump {
@@ -208,4 +208,6 @@ public:
 		wchar_t playerNamep[33],
 		wchar_t playerSurnamep[33],
 		wchar_t playerNickp[33]);
+
+	string todatapacket();
 };
