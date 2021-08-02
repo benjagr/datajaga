@@ -5,7 +5,10 @@
 #include <DtPackets.h>
 #include <fstream>
 #include <iomanip>
+#include <boost/thread.hpp>
 #include <boost/asio.hpp>
+#include <boost/filesystem.hpp>
+#include <boost/range/iterator_range.hpp>
 #include <boost/date_time.hpp>
 #include <boost/bind/bind.hpp>
 #include <boost/archive/binary_oarchive.hpp>
@@ -18,9 +21,8 @@
 namespace bpt = boost::posix_time;
 namespace asio = boost::asio;
 
-
 using namespace std;
-
+using namespace boost::filesystem;
 
 
 struct SMElement
@@ -31,7 +33,9 @@ struct SMElement
 
 bool glb_debug = FALSE;
 
-ofstream outfile;
+string glb_ending = ".djbin";
+
+std::ofstream outfile;
 
 SMElement m_graphics;
 SMElement m_physics;
@@ -64,15 +68,14 @@ void writelumptooutfile()
 
 void writecurrentlaptodisk(const boost::system::error_code&, asio::deadline_timer& t, int& previous)
 {
-	writelumptooutfile();
 	t.expires_at(t.expires_at() + bpt::millisec(50));
 	if (previous == gf->completedLaps)
 		t.async_wait(boost::bind(writecurrentlaptodisk, asio::placeholders::error, boost::ref(t), boost::ref(previous)));
+	boost::thread bt{ writelumptooutfile };
 }
 
 void writecurrentsessiontodisk(const boost::system::error_code&, asio::deadline_timer& t, int& previous)
 {
-	writelumptooutfile();
 	t.expires_at(t.expires_at() + bpt::millisec(50));
 	if (previous == gf->session) {
 		if (!(GetAsyncKeyState(0x32) && GetAsyncKeyState(VK_LSHIFT))) {
@@ -85,6 +88,7 @@ void writecurrentsessiontodisk(const boost::system::error_code&, asio::deadline_
 	else {
 		cout << "Session Over" << endl;
 	}
+	boost::thread bt{ writelumptooutfile };
 }
 
 
@@ -133,6 +137,20 @@ void initStatic()
 	}
 }
 
+void preparedata() {
+	path p = boost::filesystem::current_path();
+	string sp;
+	for (auto& entry : boost::make_iterator_range(directory_iterator(p), {})) {
+		sp = entry.path().string();
+		if (sp.length() >= glb_ending.length()) {
+			if (0 == sp.compare(sp.length() - glb_ending.length(), glb_ending.length(), glb_ending)) { //if file ends with ending of datajaga file
+
+
+			}
+		}
+	}
+}
+
 void dismiss(SMElement element)
 {
 	UnmapViewOfFile(element.mapFileBuffer);
@@ -174,7 +192,7 @@ int _tmain(int argc, _TCHAR* argv[])
 			previous = gf->completedLaps;
 			cout << "Writing current Lap: ";
 			cout << (previous + 1) << endl;
-			outfile.open("out.bin", ios::out);
+			outfile.open("out" + glb_ending, ios::out);
 			cout << "Initialized Multithreaded extraction Process" << endl;
 			t.async_wait(boost::bind(writecurrentlaptodisk, asio::placeholders::error, boost::ref(t), boost::ref(previous)));
 			cout << "Running Multithreaded extraction Process" << endl;
@@ -190,7 +208,7 @@ int _tmain(int argc, _TCHAR* argv[])
 			int previous = gf->session;
 			cout << "Writing current Session: ";
 			cout << previous << endl;
-			outfile.open("out.bin", ios::out);
+			outfile.open("out" + glb_ending, ios::out);
 			cout << "Initialized Multithreaded extraction Process" << endl;
 			t.async_wait(boost::bind(writecurrentsessiontodisk, asio::placeholders::error, boost::ref(t), boost::ref(previous)));
 			cout << "Running Multithreaded extraction Process" << endl;
@@ -203,6 +221,12 @@ int _tmain(int argc, _TCHAR* argv[])
 		else if (GetAsyncKeyState(0x33)) // user pressed 3 Send Data to Jaeger
 		{
 			cout << "Currently not implemented" << endl;
+		}
+		else if (GetAsyncKeyState(0x34) && !GetAsyncKeyState(VK_LSHIFT)) // user pressed 2 Write Session to Disk
+		{
+			cout << "Preparing to manage bin files." << endl;
+			preparedata();
+			
 		}
 		else if (GetAsyncKeyState(0x30)) // user pressed 0 Set User Debug
 		{
