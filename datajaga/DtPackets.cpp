@@ -24,6 +24,17 @@ typedef int AC_SESSION_TYPE;
 #define AC_DRIFT 5
 #define AC_DRAG 6
 
+int DtLump::getpacketid(){
+	return packetId;
+}
+
+int DtLump::getiCurrentTime() {
+	return iCurrentTime;
+}
+
+string DtLump::makeheader() {
+	return "packetId;status;session;gas;clutch;brake;fuel;gear;rpms;steerAngle;speedKmh;accGx;accGy;accGz;wheelSlipLF;wheelSlipRF;wheelSlipLR;wheelSlipRR;wheelLoadLF;wheelLoadRF;wheelLoadLR;wheelLoadRR;wheelsPressureLF;wheelsPressureRF;wheelsPressureLR;wheelsPressureRR;tyreCoreTemperatureLF;tyreCoreTemperatureRF;tyreCoreTemperatureLR;tyreCoreTemperatureRR;tyreWearLF;tyreWearRF;tyreWearLR;tyreWearRR;tyreDirtyLevelLF;tyreDirtyLevelRF;tyreDirtyLevelLR;tyreDirtyLevelRR;drs;carDamage;numberOfTyresOut;completedLaps;position;iCurrentTime;iLastTime;iBestTime;currentSectorIndex;isInPit;normalizedCarPosition;carCoordinatesx;carCoordinatesy;carCoordinatesz;key";
+}
 
 string DtLump::makestring() {
 	return	"packetId\t" + std::to_string(packetId) + "\n"
@@ -33,6 +44,7 @@ string DtLump::makestring() {
 
 
 			"gas\t" + std::to_string(gas) + "\n"
+			"clutch\t" + std::to_string(clutch) + "\n"
 			"brake\t" + std::to_string(brake) + "\n"
 			"fuel\t" + std::to_string(fuel) + "\n"
 			"gear\t" + std::to_string(gear) + "\n"
@@ -92,6 +104,7 @@ string DtLump::todatapacket() {
 
 
 							std::to_string(gas) + ";" +
+							std::to_string(clutch) + ";" +
 							std::to_string(brake) + ";" +
 							std::to_string(fuel) + ";" +
 							std::to_string(gear) + ";" +
@@ -156,6 +169,7 @@ DtLump::DtLump(
 	AC_SESSION_TYPE sessionp,
 
 	float gasp,
+	float clutch,
 	float brakep,
 	float fuelp,
 	int gearp,
@@ -241,6 +255,10 @@ DtLump::DtLump(
 	carCoordinatesz = carCoordinatesp[2];
 }
 
+
+string StLump::makeheader() {
+	return "carmodel;track;playername;playersurname;playernick;key";
+}
 
 string StLump::todatapacket() {
 	string sDatapacket = carModel + ";" +

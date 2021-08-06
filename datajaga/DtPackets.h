@@ -95,6 +95,7 @@ class DtLump {
 		AC_SESSION_TYPE session = AC_PRACTICE;
 
 		float gas = 0;
+		float clutch = 0;
 		float brake = 0;
 		float fuel = 0;
 		int gear = 0;
@@ -156,6 +157,7 @@ class DtLump {
 			AC_SESSION_TYPE sessionp,
 
 			float gasp,
+			float clutch,
 			float brakep,
 			float fuelp,
 			int gearp,
@@ -184,7 +186,13 @@ class DtLump {
 			float normalizedCarPositionp,
 			float carCoordinatesp[3]);
 
+		static string makeheader();
+
 		string makestring();
+
+		int getpacketid();
+
+		int getiCurrentTime();
 
 		string todatapacket();
 };
@@ -208,6 +216,8 @@ public:
 		wchar_t playerNamep[33],
 		wchar_t playerSurnamep[33],
 		wchar_t playerNickp[33]);
+
+	static string makeheader();
 
 	string todatapacket();
 };

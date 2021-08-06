@@ -22,7 +22,10 @@ namespace bpt = boost::posix_time;
 namespace asio = boost::asio;
 
 using namespace std;
-using namespace boost::filesystem;
+namespace bfs = boost::filesystem;
+
+std::atomic<int> lpack;
+std::atomic<int> lctim;
 
 
 struct SMElement
@@ -35,7 +38,7 @@ bool glb_debug = FALSE;
 
 string glb_ending = ".djbin";
 
-std::ofstream outfile;
+bfs::ofstream outfile;
 
 SMElement m_graphics;
 SMElement m_physics;
@@ -56,26 +59,36 @@ void writelumptooutfile()
 
 void writelumptooutfile()
 {
-	DtLump wrlump = DtLump(pf->packetId, gf->status, gf->session, pf->gas, pf->brake, pf->fuel, pf->gear, pf->rpms, pf->steerAngle, pf->speedKmh, pf->accG, pf->wheelSlip, pf->wheelLoad, pf->wheelsPressure, pf->tyreCoreTemperature, pf->tyreWear, pf->tyreDirtyLevel, pf->drs, pf->carDamage, pf->numberOfTyresOut, gf->completedLaps, gf->position, gf->iCurrentTime, gf->iLastTime, gf->iBestTime, gf->currentSectorIndex, gf->isInPit, gf->normalizedCarPosition, gf->carCoordinates);
+	DtLump wrlump = DtLump(pf->packetId, gf->status, gf->session, pf->gas, 0, pf->brake, pf->fuel, pf->gear, pf->rpms, pf->steerAngle, pf->speedKmh, pf->accG, pf->wheelSlip, pf->wheelLoad, pf->wheelsPressure, pf->tyreCoreTemperature, pf->tyreWear, pf->tyreDirtyLevel, pf->drs, pf->carDamage, pf->numberOfTyresOut, gf->completedLaps, gf->position, gf->iCurrentTime, gf->iLastTime, gf->iBestTime, gf->currentSectorIndex, gf->isInPit, gf->normalizedCarPosition, gf->carCoordinates);
 	if (outfile.bad()) {
 		cout << "Error in File Writing" << endl;
 	}
 	if(glb_debug){
-		cout << wrlump.todatapacket() << endl;
+		cout << "Called at ";
+		cout << bpt::microsec_clock::local_time().time_of_day() << endl;
+		//cout << wrlump.todatapacket() << endl;
 	}
-	outfile << wrlump.todatapacket() << endl;
+	if (lpack < wrlump.getpacketid() && lctim != wrlump.getiCurrentTime()) {
+		lpack = wrlump.getpacketid();
+		lctim = wrlump.getiCurrentTime();
+		outfile << wrlump.todatapacket() << endl;
+	}
+	return;
 }
 
 void writecurrentlaptodisk(const boost::system::error_code&, asio::deadline_timer& t, int& previous)
 {
-	t.expires_at(t.expires_at() + bpt::millisec(50));
-	if (previous == gf->completedLaps)
-		t.async_wait(boost::bind(writecurrentlaptodisk, asio::placeholders::error, boost::ref(t), boost::ref(previous)));
 	boost::thread bt{ writelumptooutfile };
+	t.expires_at(t.expires_at() + bpt::millisec(50));
+	if (previous == gf->completedLaps) {
+		t.async_wait(boost::bind(writecurrentlaptodisk, asio::placeholders::error, boost::ref(t), boost::ref(previous)));
+	}
+	return;
 }
 
 void writecurrentsessiontodisk(const boost::system::error_code&, asio::deadline_timer& t, int& previous)
 {
+	boost::thread bt{ writelumptooutfile };
 	t.expires_at(t.expires_at() + bpt::millisec(50));
 	if (previous == gf->session) {
 		if (!(GetAsyncKeyState(0x32) && GetAsyncKeyState(VK_LSHIFT))) {
@@ -88,7 +101,6 @@ void writecurrentsessiontodisk(const boost::system::error_code&, asio::deadline_
 	else {
 		cout << "Session Over" << endl;
 	}
-	boost::thread bt{ writelumptooutfile };
 }
 
 
@@ -138,16 +150,72 @@ void initStatic()
 }
 
 void preparedata() {
-	path p = boost::filesystem::current_path();
+	bfs::path p = boost::filesystem::current_path();
 	string sp;
-	for (auto& entry : boost::make_iterator_range(directory_iterator(p), {})) {
+
+	string line;
+
+	bfs::ofstream statfile;
+	bfs::ofstream recfile;
+	bfs::ifstream dtjgfile;
+
+
+	//delete old files
+	if (remove("static.csv") != 0 && glb_debug)
+		cout << "Error deleting static file" << endl;
+	else
+		cout << "Old static file deleted" << endl;
+	
+	if (remove("record.csv") != 0 && glb_debug)
+		cout << "Error deleting record file" << endl;
+	else
+		cout << "Old record file deleted" << endl;
+
+	statfile.open("static.csv", ios::out);
+	recfile.open("record.csv", ios::out);
+
+	statfile << StLump::makeheader() << endl;
+	recfile << DtLump::makeheader() << endl;
+
+	int dnum = 0;
+	for (auto& entry : boost::make_iterator_range(bfs::directory_iterator(p), {})) {
 		sp = entry.path().string();
+		if (glb_debug) {
+			cout << sp << endl;
+		}
 		if (sp.length() >= glb_ending.length()) {
 			if (0 == sp.compare(sp.length() - glb_ending.length(), glb_ending.length(), glb_ending)) { //if file ends with ending of datajaga file
+				sp = entry.path().string();
+				if (glb_debug) {
+					cout << "Datajaga file found" << endl;
+				}
+				
+				dtjgfile.open(entry, ios::out);
 
+				getline(dtjgfile, line);
+				statfile << line << endl;
+				line +=  std::to_string(dnum);
+				if (glb_debug) {
+					cout << line << endl;
+				}
 
+				while (getline(dtjgfile, line)) {
+					line += std::to_string(dnum);
+					if (glb_debug) {
+						cout << line << endl;
+					}
+					recfile << line << endl;
+				}
+				dnum++;
 			}
 		}
+	}
+
+	statfile.close();
+	recfile.close();
+
+	if (glb_debug) {
+		cout << "Stat and Rec file created and Written" << endl;
 	}
 }
 
@@ -167,7 +235,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	asio::io_service io;
 	asio::deadline_timer t(io, bpt::seconds(1));
 
-	cout << "Press 1 to write Data of your next Lap to Disk\nPress 2 to write Data of your current Session to Disk\nPress 3 to send Data of your next Lap to DataJaeger\n";
+	cout << "Press 1 to write Data of your next Lap to Disk\nPress 2 to write Data of your current Session to Disk\nPress 3 to send Data of your next Lap to DataJaeger\nPress 4 to manage Files into human readable Versions\n";
 
 	pf = (SPageFilePhysics*)m_physics.mapFileBuffer;
 	gf = (SPageFileGraphic*)m_graphics.mapFileBuffer;
@@ -177,16 +245,20 @@ int _tmain(int argc, _TCHAR* argv[])
 	{
 		if (GetAsyncKeyState(0x31)) // user pressed 1 Write next Lap to Disk
 		{
+			lpack = 0;
+			lctim = 0;
 			cout << "Preparing to write Data of the next Lap to Disk" << endl;
 			int previous = gf->completedLaps;
 			string ptext = "";
 			cout << "Waiting for end of Lap Number: ";
 			cout << (previous + 1) << endl;
-			while (previous == gf->completedLaps && glb_debug) {
-				ptext = to_string(gf->completedLaps);
-				cout << ptext;
-				for (int i = 0; i < ptext.length(); i++) {
-					cout << '\b';
+			while (previous == gf->completedLaps) {
+				if (glb_debug) {
+					ptext = to_string(gf->completedLaps);
+					cout << ptext;
+					for (int i = 0; i < ptext.length(); i++) {
+						cout << '\b';
+					}
 				}
 			}
 			previous = gf->completedLaps;
@@ -204,6 +276,8 @@ int _tmain(int argc, _TCHAR* argv[])
 		}
 		else if (GetAsyncKeyState(0x32) && !GetAsyncKeyState(VK_LSHIFT)) // user pressed 2 Write Session to Disk
 		{
+			lpack = 0;
+			lctim = 0;
 			cout << "Preparing to write Data of the next Lap to Disk" << endl;
 			int previous = gf->session;
 			cout << "Writing current Session: ";
